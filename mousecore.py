@@ -58,14 +58,16 @@ class SymList(object):
         slist = prefs['status']
         nlist = prefs['title']
         blist = prefs['custom']
+        alist = prefs['age']
     except:
         prefs = {}
         glist = prefs['gender'] = [u"公", u"母"]
         llist = prefs['level'] = [u"无分级", u"种鼠 A", u"种鼠 B", u"种鼠 C", 'A', 'B', 'C']
         clist = prefs['color'] = []
-        slist = prefs['status'] = [u"正常", u"生病", u"已售", u"死亡"]
-        nlist = prefs['title'] = [u"枫丹龙猫管理系统"]
+        slist = prefs['status'] = [u"正常", u"已售", u"死亡"]
+        nlist = prefs['title'] = [u"枫丹龙猫管理系统", u"鼠列表", u'新鼠出生', u'鼠厂总览']
         blist = prefs['custom'] = []
+        alist = prefs['age'] = [60, 210]
         with open('prefs.json', 'w') as f:
             json.dump(prefs, f, sort_keys=False, indent=4, separators=(',', ': '))
 
@@ -82,6 +84,22 @@ class SymList(object):
         SymList.slist = prefs['status']
         SymList.nlist = prefs['title']
         SymList.blist = prefs['custom']
+        SymList.alist = prefs['age']
+        
+    @classmethod
+    def adds(cls, items):
+        with open('prefs.json', 'r') as f:
+            prefs = json.load(f)
+        prefs[items[0]] += items[1:]
+        with open('prefs.json', 'w') as f:
+            json.dump(prefs, f, sort_keys=False, indent=4, separators=(',', ': '))
+        SymList.glist = prefs['gender']
+        SymList.llist = prefs['level']
+        SymList.clist = prefs['color']
+        SymList.slist = prefs['status']
+        SymList.nlist = prefs['title']
+        SymList.blist = prefs['custom']
+        SymList.alist = prefs['age']
 
 
 class Mouse(object):
@@ -112,7 +130,7 @@ class Mouse(object):
         self.cage = None
         self.status = u'正常' # G(ood), I(ll), D(eath), S(old)
         self.level = u'无分级' # S(eed)A, SB, SC, A, B, C
-        self.comment = None
+        self.comment = u''
 
     def age(self, date=None):
         """ 根据出生日期计算年龄
@@ -161,8 +179,16 @@ class Cage(object):
             self.house = '1'
         else:
             self.house = parts[0]
-        self.channel = u'关' # C(lose) or O(pen)
+        self.channel = u'开' # C(lose) or O(pen)
         self.guest = []
+        
+    def switch(self):
+        if self.channel == u'开':
+            self.channel = u'关'
+            return u'笼 ' + self.id + u' 的通道成功关闭！'
+        else:
+            self.channel = u'开'
+            return u'笼 ' + self.id + u' 的通道成功打开！'
 
     def check_in(self, id):
         """ 入住登记
@@ -206,19 +232,17 @@ class Record(object):
             self.date = today
 
     def show(self):
+        s = ''
         if self.type == 'M':
             s = u"移动：鼠 %s 从笼 %s 中移动至笼 %s 中。" % tuple(self.content)
         elif self.type == 'S':
             s = u"出售：卖出鼠 %s 至「%s」。" % (u'、'.join(self.content[1:]), self.content[0])
         elif self.type == 'D':
-            s = u"死亡：鼠 %s 死亡。" % self.content[0]
+            s = u"死亡：鼠 %s 于笼 %s 中死亡。" % tuple(self.content)
         elif self.type == 'B':
             s = u"出生：鼠 %s 于笼 %s 中出生。" % tuple(self.content)
         elif self.type == 'C':
-            if self.content[1] in SymList.slist:
-                s = u"状态：鼠 %s 的状态变为「%s」。" % (self.content[0], self.content[1])
-            elif self.content[1] in SymList.llist:
-                s = u"级别：鼠 %s 的级别变为「%s」。" % (self.content[0], self.content[1])
+            s = u"级别：鼠 %s 的级别变为「%s」。" % tuple(self.content)
         elif self.type == 'N':
             s = u"笔记：鼠 %s 的附注更新为「%s」。" % tuple(self.content)
         if self.comment:            
@@ -256,6 +280,7 @@ class Farm(object):
             self.mouses = {}
             self.logs = {}
             self.info = u"找不到数据库文件，重置数据库！"
+        self.sep = '\n'+'-'*16+'\n'
 
     def load(self, filename=None):
         """ 载入鼠厂数据
@@ -436,18 +461,35 @@ class Farm(object):
             # 找到父亲
             c1 = num - ((num - 1) % 5)
             if self.cages[cid].house != '1':
-                fcid = self.cages[cid].house + '-' + str(c1)
+                pre = self.cages[cid].house + '-'
             else:                
-                fcid = str(c1)                
-            for g in self.cages[fcid].guest:
-                if (self.mouses[g].gender == u'公') and (self.mouses[g].age(date) >= 150):
-                    father = g                    
+                pre = ''
+            flag = 0
+            for i in range(5):
+                fcid = pre + str(c1+i)
+                try:
+                    guests = self.cages[fcid].guest
+                except:
+                    guests = None
+                for g in guests:
+                    if (self.mouses[g].gender == u'公') \
+                        and (self.mouses[g].age(date) > SymList.alist[1]):
+                        father = g
+                        flag = 1
+                        break
+                if flag:
                     break
             # 找到母亲
             for g in self.cages[cid].guest:
-                if (self.mouses[g].gender == u'母') and (self.mouses[g].age(date) >= 150):
+                if (self.mouses[g].gender == u'母') and (self.mouses[g].age(date) > SymList.alist[1]):
                     mother = g
                     break
+            if self.cages[cid].channel == u'关':
+                if self.mouses[father].cage != cid:
+                    return [False]
+            else:
+                if self.cages[self.mouses[father].cage].channel == u'关':
+                    return [False]
             return [True, father, mother]
         except:
             return [False]
@@ -466,18 +508,36 @@ class Farm(object):
             # 找到父亲
             c1 = num - ((num - 1) % 5)
             if self.cages[cid].house != '1':
-                fcid = self.cages[cid].house + '-' + str(c1)
-            else:
-                fcid = str(c1)
-            for g in self.cages[fcid].guest:
-                if (self.mouses[g].gender == u'公') and (self.mouses[g].age(date) >= 150):
-                    father = g
+                pre = self.cages[cid].house + '-'
+            else:                
+                pre = ''
+            flag = 0
+            for i in range(5):
+                fcid = pre + str(c1+i)
+                try:
+                    guests = self.cages[fcid].guest
+                except:
+                    guests = None
+                for g in guests:
+                    if (self.mouses[g].gender == u'公') \
+                        and (self.mouses[g].age(date) > SymList.alist[1]):
+                        father = g
+                        flag = 1
+                        break
+                if flag:
                     break
             # 找到母亲
             for g in self.cages[cid].guest:
                 if (self.mouses[g].gender == u'母') and (self.mouses[g].age(date) >= 150):
                     mother = g
                     break
+            # 验证笼的开关状态
+            if self.cages[cid].channel == u'关':
+                if self.mouses[father].cage != cid:
+                    return u"出生失败！请检查笼 " + cid + u" 所在笼组的状态。"
+            else:
+                if self.cages[self.mouses[father].cage].channel == u'关':
+                    return u"出生失败！请检查笼 " + cid + u" 所在笼组的状态。"
             # 是否自动产生鼠号
             if not mid:
                 mid = self.new_id(date)
@@ -517,9 +577,13 @@ class Farm(object):
 
         mid 是死亡鼠的鼠号。
         当该鼠死亡时，产生一条死亡记录。 """
+        try:
+            cid = self.mouses[mid].cage
+        except KeyError:
+            pass
         if self.move(mid, None, date, comment) == u"移动成功！":
             self.mouses[mid].die(date)
-            record = Record('D', [mid], date, comment)
+            record = Record('D', [mid, cid], date, comment)
             self.insert([record])
             return u"死亡成功！"
         else:
@@ -566,7 +630,7 @@ class Farm(object):
         try:
             m = self.mouses[mid]
             if m.status != u'死亡' and m.status != u'已售':
-                if m.comment == (note or None):
+                if (m.comment or None) == (note or None):
                     return u"新附注和原附注相同，无需更改！"
                 else:
                     m.comment = note
@@ -579,4 +643,99 @@ class Farm(object):
                 return u"鼠 " + mid + u" 已卖出，不能更新其附注！"
         except:
             return u"更新附注失败！请检查鼠 " + mid + u" 及其所在笼的有效性。"
+            
+    def getSiblings(self, mid):
+        try:
+            m = self.mouses[mid]
+            bd = m.borndate
+            mother = m.mother
+            siblings = [m.id for m in self.mouses.values() if (m.borndate == bd)\
+                        and (m.mother == mother) and (m.id != mid)]
+            return siblings
+        except KeyError:
+            return False
+        
+    def getBornRecords(self, mid, flag=0):
+        try:
+            gender = self.mouses[mid].gender
+            bornrecords = {}
+            borncount = {}
+            male = SymList.glist[0]
+            if gender == male:
+                for m in self.mouses.values():
+                    if m.father == mid:
+                        if not (m.borndate in bornrecords.keys()):
+                            bornrecords[m.borndate] = []
+                            borncount[m.borndate] = [0, 0]
+                        bornrecords[m.borndate].append(m.id)
+                        borncount[m.borndate][(0 if m.gender == male else 1)] += 1
+            else:
+                for m in self.mouses.values():
+                    if m.mother == mid:
+                        if not (m.borndate in bornrecords.keys()):
+                            bornrecords[m.borndate] = []
+                            borncount[m.borndate] = [0, 0]
+                        bornrecords[m.borndate].append(m.id)
+                        borncount[m.borndate][(0 if m.gender == male else 1)] += 1
+            if not flag:
+                return bornrecords
+            else:
+                if bornrecords:
+                    def combine(count):
+                        return str(count[0]) + 'M ' + str(count[1]) + 'F'
+                    def beautier(value):
+                        s = ''
+                        value = sorted(value, key=lambda e: int(e[2:]))
+                        for i in range(len(value)):
+                            s += ('\n\t' + value[i]) if (not i % 3) else ('  ' + value[i])
+                        return s
+                    recs = sorted(bornrecords.items(), key=lambda e: e[0])
+                    return self.sep.join([key + ': ' + combine(borncount[key])\
+                                          + beautier(value) for key, value in recs])
+                else:
+                    return u'无生育记录'
+        except KeyError:
+            return False
+        
+    def getMoveRecords(self, mid, flag=0):
+        try:
+            self.mouses[mid]
+            moverecords = {}
+            for date, records in self.logs.items():
+                trace = []
+                for r in records:
+                    if (r.type == 'M') and (r.content[0] == mid):
+                        trace.append(r.content[1:])
+                    elif (r.type == 'B') and (r.content[0] == mid):
+                        trace.append([None, r.content[1]])
+                    elif (r.type == 'D') and (r.content[0] == mid):
+                        trace.append([r.content[1], None])
+                    elif (r.type == 'S') and (mid in r.content[1:]):
+                        trace.append([None, None])
+                if trace:
+                    moverecords[date] = trace
+            if not flag:
+                return moverecords
+            else:
+                if moverecords:
+                    def combine(moves):
+                        output = []
+                        for m in moves:
+                            if m[0] and m[1]:
+                                output.append(m[0] + ' --> ' + m[1])
+                            elif (not m[0]) and m[1]:
+                                output.append(u'出生' + ' --> ' + m[1])
+                            elif m[0] and (not m[1]):
+                                output.append(m[0] + ' --> ' + u'死亡')
+                            else:
+                                output.append(u'出售')
+                        return output
+                    recs = sorted(moverecords.items(), key=lambda e: e[0])
+                    return self.sep.join([key + ': \n\t' + u'\n\t'.join(combine(value))\
+                                          for key, value in recs])
+                else:
+                    return u'无移动记录'
+        except KeyError:
+            return False
 
+version = 1.01

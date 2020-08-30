@@ -9,6 +9,7 @@ try:
 except ImportError:
     import platebtn
 from mousecore import *
+from validator import *
 
 
 class LoginDialog(wx.Dialog):
@@ -19,7 +20,7 @@ class LoginDialog(wx.Dialog):
         self.InitUI()
         self.parent = parent
         self.SetTitle(u'登陆')
-#        self.EnableCloseButton(False)
+        self.EnableCloseButton(False)
         self.Fit()
         self.Center()
         p = self.GetPosition()
@@ -90,14 +91,21 @@ class SellDialog(wx.Dialog):
         
         self.farm = farm
         self.mids = mids
+        self.delta = 2 if (os.name == 'posix') else 1
         tc = wx.TextCtrl(self, -1, 'A')
         font = tc.GetFont()
         tc.Hide()
+        size = font.GetPointSize()
         self.afont = font
         tc = wx.TextCtrl(self, -1, 'A')
         font = tc.GetFont()
         tc.Hide()
-        font.SetPointSize(7)
+        font.SetPointSize(size - self.delta)
+        self.yfont = font
+        tc = wx.TextCtrl(self, -1, 'A')
+        font = tc.GetFont()
+        tc.Hide()        
+        font.SetPointSize(size - 2*self.delta)
         self.cfont = font
         self.InitUI()
         self.SetTitle(u'确认出售鼠')
@@ -145,8 +153,9 @@ class SellDialog(wx.Dialog):
         hbox.Add(st, 0, wx.LEFT, 0)
         hbox.Add((5, -1))
         hbox.Add(tc, 1, wx.EXPAND|wx.RIGHT, 0)
+        if os.name == 'posix': box.Add((-1, extra))
         box.Add(hbox, 0, wx.EXPAND|wx.ALL, extra)
-        if os.name == 'posix':
+        if os.name == 'posix':            
             vbox.Add(box, 0, wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP|wx.BOTTOM, 10)
         else:
             vbox.Add(box, 0, wx.EXPAND|wx.LEFT|wx.RIGHT|wx.BOTTOM, 10)
@@ -167,50 +176,24 @@ class SellDialog(wx.Dialog):
         
     def getPics(self):
         pics = {}
-        
-        male = wx.Image("boy.png")
-        male.Rescale(14, 14)
-        pics['man'] = wx.BitmapFromImage(male)
-        male.Rescale(10, 10)
-        pics['boy'] = wx.BitmapFromImage(male)
-        female = wx.Image("girl.png")
-        female.Rescale(14, 14)
-        pics['woman'] = wx.BitmapFromImage(female)
-        female.Rescale(10, 10)
-        pics['girl'] = wx.BitmapFromImage(female)
-        
-        male = wx.Image("boysick.png")
-        male.Rescale(14, 14)
-        pics['mansick'] = wx.BitmapFromImage(male)
-        male.Rescale(10, 10)
-        pics['boysick'] = wx.BitmapFromImage(male)
-        female = wx.Image("girlsick.png")
-        female.Rescale(14, 14)
-        pics['womansick'] = wx.BitmapFromImage(female)
-        female.Rescale(10, 10)
-        pics['girlsick'] = wx.BitmapFromImage(female)
-    
-        male = wx.Image("boydead.png")
-        male.Rescale(14, 14)
-        pics['mandead'] = wx.BitmapFromImage(male)
-        male.Rescale(10, 10)
-        pics['boydead'] = wx.BitmapFromImage(male)
-        female = wx.Image("girldead.png")
-        female.Rescale(14, 14)
-        pics['womandead'] = wx.BitmapFromImage(female)
-        female.Rescale(10, 10)
-        pics['girldead'] = wx.BitmapFromImage(female)
-        
-        male = wx.Image("boysold.png")
-        male.Rescale(14, 14)
-        pics['mansold'] = wx.BitmapFromImage(male)
-        male.Rescale(10, 10)
-        pics['boysold'] = wx.BitmapFromImage(male)
-        female = wx.Image("girlsold.png")
-        female.Rescale(14, 14)
-        pics['womansold'] = wx.BitmapFromImage(female)
-        female.Rescale(10, 10)
-        pics['girlsold'] = wx.BitmapFromImage(female)        
+        im = wx.Image("boyl.png")
+        im.Rescale(14, 14)
+        pics['bl'] = wx.BitmapFromImage(im)
+        im = wx.Image("boym.png")
+        im.Rescale(14, 12, wx.IMAGE_QUALITY_HIGH)
+        pics['bm'] = wx.BitmapFromImage(im)
+        im = wx.Image("boys.png")
+        im.Rescale(10, 10, wx.IMAGE_QUALITY_HIGH)
+        pics['bs'] = wx.BitmapFromImage(im)
+        im = wx.Image("girll.png")
+        im.Rescale(14, 14)
+        pics['gl'] = wx.BitmapFromImage(im)
+        im = wx.Image("girlm.png")
+        im.Rescale(14, 12, wx.IMAGE_QUALITY_HIGH)
+        pics['gm'] = wx.BitmapFromImage(im)
+        im = wx.Image("girls.png")
+        im.Rescale(10, 10, wx.IMAGE_QUALITY_HIGH)
+        pics['gs'] = wx.BitmapFromImage(im)               
         return pics
         
     def getView(self):
@@ -242,47 +225,49 @@ class SellDialog(wx.Dialog):
         
     def getPB(self, mid):
         m = self.farm.mouses[mid]
-        pb = platebtn.PlateButton(self.panel, -1, mid)
-        if m.age() < 90:
+        pb = platebtn.PlateButton(self, -1, mid)
+        if m.age() <= SymList.alist[0]:
             pb.SetFont(self.cfont)
-            if m.gender == u'公':
-                if m.status == u'正常':
-                    pb.SetBitmap(self.pics['boy'])                            
-                elif m.status == u'生病':
-                    pb.SetBitmap(self.pics['boysick'])
-                elif m.status == u'死亡':
-                    pb.SetBitmap(self.pics['boydead'])
-                else:
-                    pb.SetBitmap(self.pics['boysold'])
+            if m.gender == SymList.glist[0]:
+                pb.SetBitmap(self.pics['bl'])
+                if m.status == SymList.slist[1]:
+                    pb.SetForegroundColour('GOLD')
+                elif m.status == SymList.slist[2]:
+                    pb.SetForegroundColour('GREY')
             else:
-                if m.status == u'正常':
-                    pb.SetBitmap(self.pics['girl'])
-                elif m.status == u'生病':
-                    pb.SetBitmap(self.pics['girlsick'])
-                elif m.status == u'死亡':
-                    pb.SetBitmap(self.pics['girldead'])
-                else:
-                    pb.SetBitmap(self.pics['girlsold'])
+                pb.SetBitmap(self.pics['gl'])
+                if m.status == SymList.slist[1]:
+                    pb.SetForegroundColour('GOLD')
+                elif m.status == SymList.slist[2]:
+                    pb.SetForegroundColour('GREY')
+        elif SymList.alist[0] < m.age() <= SymList.alist[1]:
+            pb.SetFont(self.yfont)
+            if m.gender == SymList.glist[0]:
+                pb.SetBitmap(self.pics['bl'])
+                if m.status == SymList.slist[1]:
+                    pb.SetForegroundColour('GOLD')
+                elif m.status == SymList.slist[2]:
+                    pb.SetForegroundColour('GREY')
+            else:
+                pb.SetBitmap(self.pics['gl'])
+                if m.status == SymList.slist[2]:
+                    pb.SetForegroundColour('GOLD')
+                elif m.status == SymList.slist[3]:
+                    pb.SetForegroundColour('GREY')
         else:
             pb.SetFont(self.afont)
-            if m.gender == u'公':
-                if m.status == u'正常':
-                    pb.SetBitmap(self.pics['man'])
-                elif m.status == u'生病':
-                    pb.SetBitmap(self.pics['mansick'])
-                elif m.status == u'死亡':
-                    pb.SetBitmap(self.pics['mandead'])
-                else:
-                    pb.SetBitmap(self.pics['mansold'])
-            else:                            
-                if m.status == u'正常':
-                    pb.SetBitmap(self.pics['woman'])
-                elif m.status == u'生病':
-                    pb.SetBitmap(self.pics['womansick'])
-                elif m.status == u'死亡':
-                    pb.SetBitmap(self.pics['womandead'])
-                else:
-                    pb.SetBitmap(self.pics['womansold'])
+            if m.gender == SymList.glist[0]:
+                pb.SetBitmap(self.pics['bl'])
+                if m.status == SymList.slist[1]:
+                    pb.SetForegroundColour('GOLD')
+                elif m.status == SymList.slist[2]:
+                    pb.SetForegroundColour('GREY')
+            else:
+                pb.SetBitmap(self.pics['gl'])
+                if m.status == SymList.slist[1]:
+                    pb.SetForegroundColour('GOLD')
+                elif m.status == SymList.slist[2]:
+                    pb.SetForegroundColour('GREY')
         pb.SetToolTipString(u"毛色："+m.color+u"\n级别："+m.level+\
                             u"\n年龄："+"{:.1f}".format(m.age()/30.0)+\
                             u" 月\n附注："+(m.comment or ''))
@@ -320,7 +305,7 @@ class SimpleMoveDialog(wx.Dialog):
         self.move = False        
         color = 'STEEL BLUE'
         
-        self.tc = tc = wx.TextCtrl(panel, -1, size=(70, -1))
+        self.tc = tc = wx.TextCtrl(panel, -1, size=(70, -1), validator=MouseValidator(2))
         sb = wx.StaticBox(panel, label='')
         box = wx.StaticBoxSizer(sb, wx.VERTICAL)
         st1 = wx.StaticText(panel, label=u'将鼠 ')
@@ -418,8 +403,6 @@ class SimpleLevelDialog(wx.Dialog):
             vbox.Add(box, 0, wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP|wx.BOTTOM, 10)
         else:
             vbox.Add(box, 0, wx.EXPAND|wx.LEFT|wx.RIGHT|wx.BOTTOM, 10)
-        
-        vbox.Add((-1, 10))
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         b_app = wx.Button(panel, -1, u'确定')
         b_can = wx.Button(panel, -1, u'取消')
@@ -568,6 +551,71 @@ class AddNewDialog(wx.Dialog):
     def OnApply(self, evt):
         self.addnew = True
         self.Close()
+
+
+class QuitDialog(wx.Dialog):
+    
+    def __init__(self, parent):
+        wx.Dialog.__init__(self, parent)
+        
+        self.flag = 0
+        self.InitUI()
+        self.SetTitle(u'退出程序')
+        self.Fit()
+        self.Center()
+        p = self.GetPosition()
+        self.Move(p+wx.Point(0, -100))
+                
+    def InitUI(self):
+
+        panel = wx.Panel(self)               
+        
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        panel.SetSizer(vbox)
+        
+        sb = wx.StaticBox(panel, label='')
+        box = wx.StaticBoxSizer(sb, wx.VERTICAL)
+        st1 = wx.StaticText(panel, label=u'即将退出程序，是否保存更改？')
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        hbox.Add(st1, 1, wx.LEFT|wx.ALIGN_CENTER_VERTICAL, 0)
+        extra = (5 if os.name == 'posix' else 10)
+        box.Add(hbox, 1, wx.EXPAND|wx.ALL, extra)
+        if os.name == 'posix':
+            vbox.Add(box, 0, wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP|wx.BOTTOM, 10)
+        else:
+            vbox.Add(box, 0, wx.EXPAND|wx.LEFT|wx.RIGHT|wx.BOTTOM, 10)        
+        
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        b_no = wx.Button(panel, -1, u'不保存')
+        b_app = wx.Button(panel, -1, u'保存')
+        b_can = wx.Button(panel, -1, u'取消')
+        hbox.Add(b_no, 0, wx.EXPAND|wx.LEFT, 10)
+        hbox.Add(wx.StaticText(panel, -1, '', size=(30, -1)))
+        hbox.Add(b_app, 0, wx.EXPAND|wx.LEFT|wx.RIGHT, 10)
+        hbox.Add(b_can, 0, wx.EXPAND|wx.RIGHT, 10)
+        vbox.Add(hbox, 0, wx.BOTTOM, 10)
+        b_app.SetDefault()
+        
+        sizer = wx.BoxSizer()
+        sizer.Add(panel, 1, wx.EXPAND)
+        self.SetSizer(sizer)
+        
+        self.Bind(wx.EVT_BUTTON, self.OnNo, b_no)
+        self.Bind(wx.EVT_BUTTON, self.OnSave, b_app)
+        self.Bind(wx.EVT_BUTTON, self.OnCancel, b_can)
+    
+    def OnNo(self, evt):
+        self.flag = -1
+        self.Close()
+                
+    def OnCancel(self, evt):
+        self.flag = 0
+        self.Close()
+        
+    def OnSave(self, evt):
+        self.flag = 1
+        self.Close()
+
         
 if __name__ == '__main__':
 

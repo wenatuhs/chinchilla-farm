@@ -64,7 +64,30 @@ class InfoModel(dv.PyDataViewIndexListModel):
                 if cmp(id1[:2], id2[:2]):
                     return cmp(id1[:2], id2[:2])
                 else:
-                    return cmp(int(id1[2:]), int(id2[2:]))
+                    id1 = int(''.join([c for c in id1[2:] if c.isdigit()]))
+                    id2 = int(''.join([c for c in id2[2:] if c.isdigit()]))
+                    return cmp(id1, id2)
+            elif col == 2:
+                id1 = self.data[row1][col]
+                id2 = self.data[row2][col]
+                if id1 and id2:
+                    id1s = id1.split('-')
+                    id2s = id2.split('-')
+                    if (len(id1s) == 2) and (len(id2s) == 2):
+                        if cmp(id1s[0], id2s[0]):
+                            return cmp(int(id1s[0]), int(id2s[0]))
+                        else:
+                            return cmp(int(id1s[1]), int(id2s[1]))
+                    elif (len(id1s) == 1) and (len(id2s) == 1):
+                        return cmp(int(id1s[0]), int(id2s[0]))
+                    elif len(id1s) == 2:
+                        return 1
+                    else:
+                        return -1
+                else:
+                    return cmp(id1, id2)
+            elif col == 4:
+                return cmp(float(self.data[row1][col]), float(self.data[row2][col]))
             else:
                 return cmp(self.data[row1][col], self.data[row2][col])
         except:
@@ -147,6 +170,7 @@ class MouseListPanel(wx.Panel):
         box_lev, self.lev = self.genCheckBoxGroup(u'级别', SymList.llist, 2)
         box_sta, self.sta = self.genCheckBoxGroup(u'状态', SymList.slist, 2)
         box_age, self.age = self.genRangeGroup(u'年龄')
+        self.box_col = box_col
 
         self.gen[0].Bind(wx.EVT_CHECKBOX, lambda evt: self.OnCheck(evt, 'gen'))
         self.col[0].Bind(wx.EVT_CHECKBOX, lambda evt: self.OnCheck(evt, 'col'))
@@ -173,8 +197,6 @@ class MouseListPanel(wx.Panel):
         if self.model.data[0][1] == '':
             self.model.DeleteAll()
             self.model.Cleared()
-        self.sizer.Layout()
-        self.frame.Fit()
 
     def getDVC(self):
         dvc = dv.DataViewCtrl(self, size=(877, -1),
@@ -198,10 +220,10 @@ class MouseListPanel(wx.Panel):
                                      #mode=dv.DATAVIEW_CELL_EDITABLE)
         for c in dvc.Columns:
             c.Sortable = True
-            c.Reorderable = True
+            c.Reorderable = False
         c0.MinWidth = 40
-        c0.Reorderable = False
-        c1.Reorderable = False
+#        c0.Reorderable = False
+#        c1.Reorderable = False
         return dvc
 
     def genCheckBoxGroup(self, label, choices, extra=0):
@@ -222,6 +244,24 @@ class MouseListPanel(wx.Panel):
             gs.Add(ck, 1, wx.EXPAND)
         box.Add(gs, 1, wx.EXPAND|wx.ALL, self.extra)
         return box, checkboxes
+
+    def genCheckBoxGrid(self, choices, extra=0):
+        ck0 = wx.CheckBox(self, -1, u"不限")
+        ck0.Hide()
+        checkboxes = [ck0]
+        for choice in choices:
+            checkboxes.append(wx.CheckBox(self, -1, choice))
+            checkboxes[-1].Hide()
+            checkboxes[-1].Disable()
+        ck0.SetValue(True)
+        n = math.ceil((len(checkboxes)+extra)/3.0)
+        gs = wx.GridSizer(n, 3, 5, 5)
+        gs.Add(ck0, 0)
+        for i in range(extra):
+            gs.Add(wx.StaticText(self), 0)
+        for ck in checkboxes[1:]:
+            gs.Add(ck, 1, wx.EXPAND)
+        return gs, checkboxes
 
     def genRangeGroup(self, label):
         sb = wx.StaticBox(self, label=label)
@@ -259,7 +299,7 @@ class MouseListPanel(wx.Panel):
                 self.mids.remove(self.model.id)
             else:
                 self.mids.append(self.model.id)
-        self.frame.Update()         
+        self.frame.Update()
 
     def OnCheck(self, evt, flag):
         if flag == 'gen':
@@ -299,7 +339,8 @@ class MouseListPanel(wx.Panel):
         mouselist.sort(key=lambda e: (e[0][0:2], int(e[0][2:])))
         mousedata = [[self.getCheckState(k), k, (v.cage or ''), v.gender, \
                       "{:.1f}".format(v.age()/30.0), v.color, v.level, v.status, \
-                      v.borndate, (v.deathdate or ''), (v.comment or '')] for k,v in mouselist]
+                      v.borndate, (v.deathdate or ''), (' '.join(v.comment.split('\n')) or '')] \
+                      for k,v in mouselist]
         if mousedata:
             return mousedata
         else:
@@ -373,33 +414,36 @@ class MouseListPanel(wx.Panel):
         for ck in ck0s:
             ck.SetValue(True)
         self.conditions = []
-        self.frame.Update()
+        self.frame.Update(2)
 
     def OnAll(self, evt):
         self.mids = self.mouses.keys()
-        self.frame.Update()
+        self.frame.Update(2)
 
     def OnCancel(self, evt):
         self.mids = []
-        self.frame.Update()
+        self.frame.Update(2)
 
     def OnSell(self, evt):
         sd = dialog.SellDialog(self.frame, self.mids, self.frame.farm)
-        sd.ShowModal()        
+        sd.ShowModal()
         if sd.sold:
             feedback = self.frame.farm.sell(self.mids, sd.buyer, sd.date, sd.comment)
             if sd.buyer not in SymList.blist:
                 SymList.add(['custom', sd.buyer])
             for child in self.frame.parent.GetChildren():
-                child.Update()
+                if child == self:
+                    self.Update(2)
+                else:
+                    child.Update()
             self.frame.statusbar.SetStatusText(self.summary(feedback))
         sd.Destroy()
-        
+
     def OnDetail(self, evt):
         pos = self.GetPosition() + wx.Point(200, 200)
         for mid in self.mids:
             pos += wx.Point(20, 20)
-            mousecard.MouseCard(self.frame.parent, mid, self.frame.farm, pos=pos)        
+            mousecard.MouseCard(self.frame.parent, mid, self.frame.farm, pos=pos)
 
     def summary(self, feedback):
         fails = []
@@ -410,7 +454,7 @@ class MouseListPanel(wx.Panel):
             return ' '.join(fails)
         else:
             return u'出售成功！'
-            
+
 
 class MouseList(wx.Frame):
 
@@ -422,6 +466,7 @@ class MouseList(wx.Frame):
         self.farm = farm
         self.InitUI()
         self.Fit()
+        self.SetMinSize(self.GetSize())
         self.SetTitle(u'鼠列表')
         self.Center()
         try:
@@ -454,7 +499,7 @@ class MouseList(wx.Frame):
             self.panel.model.DeleteAll()
             for i in range(new):
                 self.panel.model.AddRow([False, '', '', '', '', '', '', '', '', '', ''])
-        # the real part
+        # update the mouselist
         self.panel.model.data = data
         if not new:
             self.panel.model.Cleared()
@@ -472,9 +517,39 @@ class MouseList(wx.Frame):
             self.statusbar.SetStatusText(u'过滤成功！共有 %d 项符合条件' % len(self.panel.mouses.keys()))
         else:
             self.statusbar.SetStatusText(u'共有 %d 项符合条件' % len(self.panel.mouses.keys()))
+        # update the colors
+        if not flag:
+            dict_col = {}
+            for cb in self.panel.col:
+                dict_col[cb.GetLabel()] = cb.GetValue()
+            gs_col, self.panel.col = self.panel.genCheckBoxGrid(SymList.clist, 2)
+            self.panel.col[0].Bind(wx.EVT_CHECKBOX, lambda evt: self.panel.OnCheck(evt, 'col'))
+            if dict_col[u'不限']:
+                for cb in self.panel.col:
+                    try:
+                        cb.SetValue(dict_col[cb.GetLabel()])
+                    except KeyError:
+                        cb.SetValue(False)
+            else:
+                for cb in self.panel.col:
+                    cb.Enable()
+                    try:
+                        cb.SetValue(dict_col[cb.GetLabel()])
+                    except KeyError:
+                        cb.SetValue(False)
+            self.panel.box_col.Hide(0)
+            self.panel.box_col.Remove(0)
+            for cb in self.panel.col:
+                cb.Show()
+            self.panel.box_col.Add(gs_col, 1, wx.EXPAND|wx.ALL, self.panel.extra)
         self.panel.sizer.Layout()
         self.panel.Refresh()
-        self.Fit()
+        self.SetMinSize((1, 1))
+        x0, y0 = self.GetSizeTuple()
+        x1, y1 = self.GetBestSizeTuple()
+        self.SetMinSize((x1, y1))
+        x, y = max(x0, x1), max(y0, y1)
+        self.SetSize((x, y))
 
     def OnClose(self, evt):
         try:

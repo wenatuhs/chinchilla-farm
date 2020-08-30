@@ -7,8 +7,9 @@ try:
     import wx.lib.platebtn as platebtn
 except ImportError:
     import platebtn
-    
+
 from mousecore import *
+from validator import *
 
 
 class AddNewPanel(wx.Panel):
@@ -39,19 +40,16 @@ class AddNewPanel(wx.Panel):
         st9 = wx.StaticText(self, label=u'级别')
         st10 = wx.StaticText(self, label=u'状态')
         self.stdead = st11 = wx.StaticText(self, label=u'死亡日期')
-        self.mid = tc4 = wx.TextCtrl(self, -1)
-        self.cid = tc1 = wx.TextCtrl(self, -1)
+        self.mid = tc4 = wx.TextCtrl(self, -1, validator=MouseValidator(1))
+        self.cid = tc1 = wx.TextCtrl(self, -1, validator=MouseValidator(2))
         self.gender = ch2 = wx.Choice(self, -1, choices=SymList.glist, size=(100, -1))
-        self.gender.SetStringSelection(SymList.glist[0])
+        self.gender.SetSelection(-1)
         self.color = ch3 = wx.ComboBox(self, -1, choices=SymList.clist, size=(100, -1))
-        try:
-            self.color.SetValue(SymList.clist[0])
-        except:
-            pass
+        self.color.SetValue('')
         self.born = dp5 = wx.DatePickerCtrl(self)
         self.dead = dp11 = wx.DatePickerCtrl(self)
-        self.father = tc6 = wx.TextCtrl(self, -1)
-        self.mother = tc7 = wx.TextCtrl(self, -1)                                      
+        self.father = tc6 = wx.TextCtrl(self, -1, validator=MouseValidator(3))
+        self.mother = tc7 = wx.TextCtrl(self, -1, validator=MouseValidator(3))
         self.cmt = tc8 = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=(-1, 60))
         self.level = ch9 = wx.Choice(self, -1, choices=SymList.llist, size=(100, -1))
         self.level.SetStringSelection(SymList.llist[0])
@@ -64,7 +62,7 @@ class AddNewPanel(wx.Panel):
                      (st5, 0, wx.ALIGN_CENTER_VERTICAL),
                      (dp5, 0, wx.ALIGN_CENTER_VERTICAL),
                      (st11, 0, wx.ALIGN_CENTER_VERTICAL),
-                     (dp11, 0, wx.ALIGN_CENTER_VERTICAL),                     
+                     (dp11, 0, wx.ALIGN_CENTER_VERTICAL),
                      (st2, 0, wx.ALIGN_CENTER_VERTICAL),
                      (ch2, 0, wx.ALIGN_CENTER_VERTICAL),
                      (st3, 0, wx.ALIGN_CENTER_VERTICAL),
@@ -95,7 +93,7 @@ class AddNewPanel(wx.Panel):
         hbox.Add(add, 0, wx.RIGHT, 10)
         hbox.Add(can, 0, wx.RIGHT, 10)
         vbox.Add(hbox, 0, wx.ALIGN_RIGHT|wx.BOTTOM, 10)
-        
+
         st11.Hide()
         dp11.Hide()
 
@@ -105,16 +103,19 @@ class AddNewPanel(wx.Panel):
         self.Bind(wx.EVT_TEXT, self.frame.OnChange, self.cid)
         self.Bind(wx.EVT_TEXT, self.frame.OnChange, self.father)
         self.Bind(wx.EVT_TEXT, self.frame.OnChange, self.mother)
+        self.Bind(wx.EVT_CHOICE, self.frame.OnChange, self.gender)
         self.Bind(wx.EVT_CHOICE, self.frame.OnChange, self.status)
+        self.Bind(wx.EVT_COMBOBOX, self.frame.OnChange, self.color)
+        self.Bind(wx.EVT_TEXT, self.frame.OnChange, self.color)
         self.Bind(wx.EVT_DATE_CHANGED, self.frame.OnChange, self.born)
         self.Bind(wx.EVT_DATE_CHANGED, self.frame.OnChange, self.dead)
 
 
 class AddNew(wx.Frame):
 
-    def __init__(self, parent, farm, mid=None):
+    def __init__(self, parent, farm, mid=None, pos=None):
         wx.Frame.__init__(self, parent)
-        
+
         self.statusbar = self.CreateStatusBar()
         self.parent = parent
         self.farm = farm
@@ -122,14 +123,12 @@ class AddNew(wx.Frame):
         self.InitUI()
         self.SetTitle(u'添加鼠')
         self.Fit()
+        self.SetMinSize(self.GetSize())
         self.Center()
         
-        exitID = wx.NewId()
-        self.Bind(wx.EVT_MENU, self.OnCancel, id=exitID)
-        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CMD, ord('W'), exitID)])
-        self.SetAcceleratorTable(accel_tbl)
-        
-        if self.parent:
+        if pos:
+            self.Move(pos)
+        elif self.parent:
             p = self.GetPosition()
             if self.parent.GetTitle() == SymList.nlist[0]:
                 self.Move(p+wx.Point(-250, 0))
@@ -143,21 +142,32 @@ class AddNew(wx.Frame):
         sizer.Add(self.panel, 1, wx.EXPAND)
         self.SetSizer(sizer)
         if self.mid:
-            self.panel.mid.SetValue(self.mid)
-        
+            self.panel.mid.ChangeValue(self.mid)
+        exitID = wx.NewId()
+        self.Bind(wx.EVT_MENU, self.OnCancel, id=exitID)
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CMD, ord('W'), exitID)])
+        self.SetAcceleratorTable(accel_tbl)
+        self.Bind(wx.EVT_SIZE, self.OnSize)
+
+    def OnSize(self, evt):
+        self.x0, self.y0 = self.GetSizeTuple()
+        evt.Skip()
+
     def OnChange(self, event):
         cid = self.panel.cid.GetValue()
         mid = self.panel.mid.GetValue()
+        gender = self.panel.gender.GetStringSelection()
+        color = self.panel.color.GetValue()
         father = self.panel.father.GetValue()
         mother = self.panel.mother.GetValue()
         status = self.panel.status.GetStringSelection()
         born = self.panel.born.GetValue().Format('%Y-%m-%d')
         dead = self.panel.dead.GetValue().Format('%Y-%m-%d')
         if status in [u'正常', u'生病']:
-            self.panel.cid.Enable()        
+            self.panel.cid.Enable()
             self.panel.dead.Hide()
             self.panel.stdead.Hide()
-            if mid and cid and father and mother:
+            if mid and cid and father and mother and gender and color:
                 self.panel.add.Enable()
             else:
                 self.panel.add.Disable()
@@ -165,46 +175,59 @@ class AddNew(wx.Frame):
             self.panel.cid.Disable()
             self.panel.dead.Show()
             self.panel.stdead.Show()
-            if mid and father and mother and (dead>=born):
+            if mid and father and mother and (dead>=born) and gender and color:
                 self.panel.add.Enable()
             else:
                 self.panel.add.Disable()
         else:
             self.panel.cid.Disable()
             self.panel.dead.Hide()
-            self.panel.stdead.Hide()            
-            if mid and father and mother:
+            self.panel.stdead.Hide()
+            if mid and father and mother and gender and color:
                 self.panel.add.Enable()
             else:
-                self.panel.add.Disable()            
-        self.Fit()
-        
+                self.panel.add.Disable()
+        self.sizer.Layout()
+        self.Unbind(wx.EVT_SIZE)
+        self.SetMinSize((1, 1))
+        x1, y1 = self.GetBestSizeTuple()
+        self.SetMinSize((x1, y1))
+        x, y = max(self.x0, x1), max(self.y0, y1)
+        self.SetSize((x, y))
+        self.Bind(wx.EVT_SIZE, self.OnSize)
+
     def OnCancel(self, event):
         self.Destroy()
-        
-    def Update(self):
-        self.panel.mid.SetValue('')
-        self.panel.cid.SetValue('')
-        self.panel.gender.SetStringSelection(SymList.glist[0])
-        self.panel.color.SetItems(SymList.clist)
-        try:
-            self.panel.color.SetValue(SymList.clist[0])
-        except:
-            pass
-        dt = wx.DateTime()
-        self.panel.born.SetValue(dt.Today())
-        self.panel.dead.SetValue(dt.Today())
-        self.panel.father.SetValue('')
-        self.panel.mother.SetValue('')                                      
-        self.panel.cmt.SetValue('')
-        self.panel.level.SetStringSelection(SymList.llist[0])
-        self.panel.status.SetStringSelection(SymList.slist[0])
-        self.panel.dead.Hide()
-        self.panel.stdead.Hide() 
-        self.panel.mid.SetFocus()
-        self.panel.cid.Enable()
-        self.Layout()
-        self.Fit()
+
+    def Update(self, flag=0):
+        if flag:
+            self.panel.mid.SetValue('')
+            self.panel.cid.SetValue('')
+            self.panel.gender.SetSelection(-1)
+            self.panel.color.SetValue('')
+            dt = wx.DateTime()
+            self.panel.born.SetValue(dt.Today())
+            self.panel.dead.SetValue(dt.Today())
+            self.panel.father.SetValue('')
+            self.panel.mother.SetValue('')
+            self.panel.cmt.SetValue('')
+            self.panel.level.SetStringSelection(SymList.llist[0])
+            self.panel.status.SetStringSelection(SymList.slist[0])
+            self.panel.dead.Hide()
+            self.panel.stdead.Hide()
+            self.panel.cid.Enable()
+            self.Layout()
+        else:
+            self.panel.color.SetItems(SymList.clist)
+        self.sizer.Layout()
+        self.Unbind(wx.EVT_SIZE)
+        x1, y1 = self.GetBestSizeTuple()
+        self.SetMinSize((1, 1))
+        x1, y1 = self.GetBestSizeTuple()
+        self.SetMinSize((x1, y1))
+        x, y = max(self.x0, x1), max(self.y0, y1)
+        self.SetSize((x, y))
+        self.Bind(wx.EVT_SIZE, self.OnSize)
 
     def OnAdd(self, event):
         mid = self.panel.mid.GetValue()
@@ -216,7 +239,7 @@ class AddNew(wx.Frame):
         father = self.panel.father.GetValue()
         mother = self.panel.mother.GetValue()
         level = self.panel.level.GetStringSelection()
-        status = self.panel.status.GetStringSelection()        
+        status = self.panel.status.GetStringSelection()
         comment = self.panel.cmt.GetValue()
         mouse = Mouse(mid, gender, color, mother, father, borndate)
         if status == u'死亡':
@@ -234,10 +257,13 @@ class AddNew(wx.Frame):
             else:
                 self.statusbar.SetStatusText(feedback+' '+feedback2)
             for child in self.parent.GetChildren():
-                child.Update()
+                if child == self:
+                    self.Update(1)
+                else:
+                    child.Update()
         else:
             self.statusbar.SetStatusText(feedback)
-            self.panel.mid.SetFocus()
+        self.panel.mid.SetFocus()
 
 
 if __name__ == '__main__':

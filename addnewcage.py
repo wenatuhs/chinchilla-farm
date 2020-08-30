@@ -2,10 +2,6 @@
 
 
 import wx
-try:
-    import wx.lib.platebtn as platebtn
-except ImportError:
-    import platebtn
     
 from mousecore import *
 from validator import *
@@ -58,7 +54,7 @@ class AddNewCagePanel(wx.Panel):
 class AddNewCage(wx.Frame):
 
     def __init__(self, parent, farm):
-        wx.Frame.__init__(self, parent)
+        wx.Frame.__init__(self, parent, style=wx.SYSTEM_MENU|wx.CAPTION|wx.CLOSE_BOX)
         
         self.statusbar = self.CreateStatusBar()
         self.parent = parent
@@ -106,9 +102,6 @@ class AddNewCage(wx.Frame):
     def OnCancel(self, event):
         self.Destroy()
         
-    def Update(self):
-        pass
-
     def OnAdd(self, event):
         house = self.panel.house.GetValue()
         cmin = self.panel.cmin.GetValue()
@@ -119,7 +112,13 @@ class AddNewCage(wx.Frame):
             cagelist = [house+'-'+str(c) for c in range(int(cmin), int(cmax)+1)]
         feedback = self.farm.new_cages(cagelist)
         for child in self.parent.GetChildren():
-            child.Update()
+            try:
+                if child.GetTitle() == SymList.nlist[1]:
+                    child.Update(2)
+                else:
+                    child.Update()
+            except:
+                child.Update()
         self.statusbar.SetStatusText(feedback)
         self.panel.cmin.SetValue('')
         self.panel.cmax.SetValue('')

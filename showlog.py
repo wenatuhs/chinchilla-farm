@@ -13,7 +13,7 @@ class ShowLogPanel(wx.Panel):
         wx.Panel.__init__(self, parent, -1)       
 
         vbox = wx.BoxSizer(wx.VERTICAL)
-        self.SetSizer(vbox)
+        self.SetSizer(vbox)        
         
         self.prev = b_prev = wx.Button(self, -1, u'上一天')
         self.next = b_next = wx.Button(self, -1, u'下一天')        
@@ -52,9 +52,11 @@ class ShowLog(wx.Frame):
         self.farm = farm
         self.parent = parent
         self.statusbar = self.CreateStatusBar()
+        self.sep = '\n'+'-'*40+'\n'
         self.InitUI()
         self.SetTitle(u'浏览日志')
         self.Fit()
+        self.SetMinSize(self.GetSize())
         self.Center()
         if self.parent:
             p = self.GetPosition()
@@ -69,7 +71,7 @@ class ShowLog(wx.Frame):
         sizer = wx.BoxSizer()
         sizer.Add(panel, 1, wx.EXPAND)
         self.SetSizer(sizer)
-        self.OnStart()
+        self.Update()
         
         self.Bind(wx.EVT_DATE_CHANGED, self.OnDateChanged, self.panel.dpc)
         self.Bind(wx.EVT_BUTTON, self.OnNext, self.panel.next)
@@ -84,46 +86,38 @@ class ShowLog(wx.Frame):
         date = self.panel.dpc.GetValue().Format('%Y-%m-%d')
         try:
             records = self.farm.logs[date]
-            content = '\n'.join([record.show() for record in records])
-        except:
+            content = self.sep.join([record.show() for record in records])
+        except KeyError:
             content = u"暂无记录！"
-        self.panel.log.SetValue(content)
+        self.panel.log.Clear()
+        self.panel.log.write(content)
         
     def OnClose(self, evt):
-        self.Destroy()        
-    
-    def OnStart(self):
-        date = self.panel.dpc.GetValue()
-        s = date.Format('%Y-%m-%d')
-        try:
-            records = self.farm.logs[s]
-            content = '\n'.join([record.show() for record in records])
-        except:
-            content = u"暂无记录！"
-        self.panel.log.SetValue(content)
+        self.Destroy()
         
     def OnDateChanged(self, event):
-        date = event.GetDate()
-        s = date.Format('%Y-%m-%d')
+        date = event.GetDate().Format('%Y-%m-%d')
         try:
-            records = self.farm.logs[s]
-            content = '\n'.join([record.show() for record in records])
-        except:
+            records = self.farm.logs[date]
+            content = self.sep.join([record.show() for record in records])
+        except KeyError:
             content = u"暂无记录！"
-        self.panel.log.SetValue(content)
+        self.panel.log.Clear()
+        self.panel.log.write(content)
         
     def OnNext(self, evt):
         date = self.panel.dpc.GetValue()
         day = wx.TimeSpan().Day()
         date += day
-        self.panel.dpc.SetValue(date)        
+        self.panel.dpc.SetValue(date)
         s = date.Format('%Y-%m-%d')
         try:
             records = self.farm.logs[s]
-            content = '\n'.join([record.show() for record in records])
-        except:
+            content = self.sep.join([record.show() for record in records])
+        except KeyError:
             content = u"暂无记录！"
-        self.panel.log.SetValue(content)
+        self.panel.log.Clear()
+        self.panel.log.write(content)
                 
     def OnPrev(self, evt):
         date = self.panel.dpc.GetValue()
@@ -133,10 +127,11 @@ class ShowLog(wx.Frame):
         s = date.Format('%Y-%m-%d')
         try:
             records = self.farm.logs[s]
-            content = '\n'.join([record.show() for record in records])
-        except:
+            content = self.sep.join([record.show() for record in records])
+        except KeyError:
             content = u"暂无记录！"
-        self.panel.log.SetValue(content)
+        self.panel.log.Clear()
+        self.panel.log.write(content)
 
 
 if __name__ == '__main__':
